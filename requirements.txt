@@ -1,0 +1,4 @@
+obs-websocket-py
+subprocess
+psutil
+git+https://github.com/howprobable/py_helpers
