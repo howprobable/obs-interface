@@ -1,4 +1,7 @@
-obs-websocket-py
+obswebsocket
 subprocess
+pyautogui
 psutil
-git+https://github.com/howprobable/py_helpers
+shutil
+time
+os
