@@ -8,7 +8,6 @@ setup(
         "obs-websocket-py",
         "pyautogui",
         "psutil",
-        "shutil",
     ],
     description='A simple Python module to record a Chrome window with OBS',
     author='Jannik Eggert',
