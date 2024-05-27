@@ -1,4 +1,3 @@
 obs-websocket-py
 pyautogui
 psutil
-shutil
