@@ -1,5 +1,6 @@
 from __future__ import annotations
 from obswebsocket import obsws, requests
+from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip
 
 import subprocess
 import pyautogui
@@ -22,12 +23,13 @@ class obs_interface:
 
     #defaults
     
-    def __init__(self, verbose : bool = False): 
+    def __init__(self, verbose : bool = False, watermark_path: str = None): 
         self.client: obsws = None 
         self.clean: bool = False
         self.started_process: bool = False
         self.output_path : str = None
         self.verbose = verbose
+        self.watermark_path : str = watermark_path or None
 
         self._start_server()
         self._connect()
@@ -45,10 +47,11 @@ class obs_interface:
     
         self.clean = True
 
-    def start_recording(self, filename: str = None) -> None: 
+    def start_recording(self, filename: str = None, watermark_path : str = None) -> None: 
         if filename: 
             if not filename.endswith(obs_interface.file_type): filename += obs_interface.file_type
             self.output_path = filename
+        if watermark_path: self.watermark_path : str = watermark_path
 
         if len(pyautogui.getWindowsWithTitle(obs_interface.chrome_process_title)) == 0: raise TooLessGoogleChromes()
         if len(pyautogui.getWindowsWithTitle(obs_interface.chrome_process_title)) > 1: raise TooManyGoogleChromes()
@@ -62,29 +65,45 @@ class obs_interface:
         self.client.call(requests.StartRecord())
         time.sleep(1)
 
-    def stop_recording(self, filename: str = None) -> None: 
+    def stop_recording(self, filename: str = None, watermark_path : str = None) -> None: 
         if filename: 
             if not filename.endswith(obs_interface.file_type): filename += obs_interface.file_type
             self.output_path = filename
+        if watermark_path: self.watermark_path : str = watermark_path
 
         time.sleep(2)
 
         req = requests.StopRecord()
         self.client.call(req)
 
-        time.sleep(1)
+        for _ in range(3): 
+            time.sleep(3)
+            try: 
+                path = req.datain["outputPath"]
+                shutil.move(path, self.output_path)
+                break
+            except PermissionError: pass
+            except Exception as e: raise e
 
-        path = req.datain["outputPath"]
-        shutil.move(path, self.output_path)
+        
+        if self.watermark_path: 
+            for _ in range(3): 
+                time.sleep(3)
+                try: 
+                    self._add_watermark(video_path=self.output_path, watermark_path=self.watermark_path)
+                    break
+                except PermissionError: pass
+                except Exception as e: raise e
+            
 
-
-    #privates
-    def _set_output_path(self, path: str):
+    def set_output_path(self, path: str):
         if not path.endswith(obs_interface.file_type): path += obs_interface.file_type
         self.output_path = path
 
-    def _set_window(self, window_name: str): 
-        self.window_name = window_name
+    def set_watermark_path(self, path: str): 
+        self.watermark_path : str = path
+
+    #privates
 
     def _start_server(self, path: str = None, port: int= None, password: str=None) -> None: 
         path = path or "C:\Program Files\obs-studio\\bin\\64bit\obs64.exe"
@@ -124,22 +143,33 @@ class obs_interface:
         port = port or obs_interface.port
         password = password or obs_interface.password
 
-        print(f"Trying to connect to {host}:{port} with {password}...")    
+        if self.verbose: print(f"[OBS]Trying to connect to {host}:{port} with {password}...")    
         self.client = obsws(host, port, password, legacy=False)
         self.client.connect()
-        print(f"Trying to connect to {host}:{port} with {password}... done")    
+        if self.verbose: print(f"[OBS]Trying to connect to {host}:{port} with {password}... done")    
         
     def _disconnect(self,) -> None: 
         if self.verbose: print("[OBS] Disconnecting server...")
         self.client.disconnect() 
         if self.verbose: print("[OBS] Disconnecting server... done")
 
+    def _add_watermark(self, video_path: str, watermark_path: str) -> None: 
+        new_path = os.path.splitext(video_path)[0] + ".mp4"
+        video = VideoFileClip(video_path)
+        logo = ImageClip(watermark_path)
+        height = logo.h
+        logo = logo.set_duration(video.duration).resize(height=height).margin(bottom=30, right=20, opacity=0).set_pos(("right", "bottom"))
+
+        final = CompositeVideoClip([video, logo])
+        final.write_videofile(new_path, codec="libx264")
+
 
 if __name__ == "__main__": 
     obs_client = obs_interface()
-    obs_client.start_recording(filename="C:/Users/gerde/Desktop/test.mkv")
+    obs_client.start_recording(filename="C:/Users/gerde/Desktop/test")
+    watermark_path = "C:\/Users\/gerde\/Desktop\/Schnell Gezeigt\/Logo\/Quer-klein.png"
 
     time.sleep(10)
 
-    obs_client.stop_recording()
+    obs_client.stop_recording(watermark_path=watermark_path)
     obs_client.clean_up()
