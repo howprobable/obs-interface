@@ -1,4 +1,4 @@
-obswebsocket
+obs-websocket-py
 subprocess
 pyautogui
 psutil
