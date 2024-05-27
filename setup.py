@@ -6,12 +6,9 @@ setup(
     packages=find_packages(),
     install_requires=[
         "obs-websocket-py",
-        "subprocess",
         "pyautogui",
         "psutil",
         "shutil",
-        "time",
-        "os",
     ],
     description='A simple Python module to record a Chrome window with OBS',
     author='Jannik Eggert',
