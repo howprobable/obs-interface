@@ -1,7 +1,4 @@
 obs-websocket-py
-subprocess
 pyautogui
 psutil
 shutil
-time
-os
