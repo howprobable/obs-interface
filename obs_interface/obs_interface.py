@@ -30,6 +30,7 @@ class obs_interface:
         self.output_path : str = None
         self.verbose = verbose
         self.watermark_path : str = watermark_path or None
+        self.recording: bool = False
 
         self._start_server()
         self._connect()
@@ -41,6 +42,10 @@ class obs_interface:
 
     #publics
     def clean_up(self, ) -> None: 
+        if self.verbose: print("[OBS] Cleaning up...")
+
+        if self.recording: self.stop_recording()
+
         time.sleep(1)
         if self.client: self._disconnect()
 
@@ -49,6 +54,8 @@ class obs_interface:
         self.clean = True
 
     def start_recording(self, filename: str = None, watermark_path : str = None) -> None: 
+        if self.verbose: print("[OBS] Starting recording...")
+
         if filename: 
             if not filename.endswith(obs_interface.file_type): filename += obs_interface.file_type
             self.output_path = filename
@@ -59,10 +66,13 @@ class obs_interface:
 
         chrome_window = pyautogui.getWindowsWithTitle(obs_interface.chrome_process_title)[0]
         height, width = chrome_window.height-10, chrome_window.width-20
+        
 
         req = requests.SetVideoSettings(baseWidth=width, outputWidth=width, baseHeight=height, outputHeight=height) 
         self.client.call(req)
         time.sleep(.5)
+        self.recording = True
+
         self.client.call(requests.StartRecord())
         time.sleep(1)
 
@@ -71,11 +81,14 @@ class obs_interface:
             if not filename.endswith(obs_interface.file_type): filename += obs_interface.file_type
             self.output_path = filename
         if watermark_path: self.watermark_path : str = watermark_path
+        if not self.recording: return
 
         time.sleep(2)
 
         req = requests.StopRecord()
         self.client.call(req)
+
+        if self.verbose: print("[OBS] Stopping recording...")
 
         for _ in range(3): 
             time.sleep(3)
