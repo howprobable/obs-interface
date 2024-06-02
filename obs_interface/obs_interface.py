@@ -92,9 +92,10 @@ class obs_interface:
         if self.verbose: print("[OBS] Stopping recording...")
 
         for _ in range(3): 
-            time.sleep(3)
+            time.sleep(2)
             try: 
-                path = req.datain["outputPath"]
+                path = req.datain.get("outputPath", None)
+                if not path: continue
                 shutil.move(path, self.output_path)
                 break
             except PermissionError: pass
