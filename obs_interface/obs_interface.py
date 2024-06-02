@@ -41,10 +41,11 @@ class obs_interface:
 
     #publics
     def clean_up(self, ) -> None: 
-        if self.client: self._disconnect() 
-        time.sleep(0.1)
-        if self.started_process: self._stop_server() 
-    
+        time.sleep(1)
+        if self.client: self._disconnect()
+
+        time.sleep(2)
+        if self.started_process: self._stop_server()
         self.clean = True
 
     def start_recording(self, filename: str = None, watermark_path : str = None) -> None: 
@@ -143,14 +144,14 @@ class obs_interface:
         port = port or obs_interface.port
         password = password or obs_interface.password
 
-        if self.verbose: print(f"[OBS]Trying to connect to {host}:{port} with {password}...")    
+        if self.verbose: print(f"[OBS] Trying to connect to {host}:{port} with {password}...")    
         self.client = obsws(host, port, password, legacy=False)
         self.client.connect()
-        if self.verbose: print(f"[OBS]Trying to connect to {host}:{port} with {password}... done")    
+        if self.verbose: print(f"[OBS] Trying to connect to {host}:{port} with {password}... done")    
         
     def _disconnect(self,) -> None: 
         if self.verbose: print("[OBS] Disconnecting server...")
-        self.client.disconnect() 
+        self.client.disconnect()
         if self.verbose: print("[OBS] Disconnecting server... done")
 
     def _add_watermark(self, video_path: str, watermark_path: str) -> None: 
@@ -165,11 +166,12 @@ class obs_interface:
 
 
 if __name__ == "__main__": 
-    obs_client = obs_interface()
+    obs_client = obs_interface(verbose=True)
     obs_client.start_recording(filename="C:/Users/gerde/Desktop/test")
-    watermark_path = "C:\/Users\/gerde\/Desktop\/Schnell Gezeigt\/Logo\/Quer-klein.png"
+    # watermark_path = "C:\/Users\/gerde\/Desktop\/Schnell Gezeigt\/Logo\/Quer-klein.png"
 
     time.sleep(10)
 
-    obs_client.stop_recording(watermark_path=watermark_path)
+    obs_client.stop_recording() #watermark_path=watermark_path)
+
     obs_client.clean_up()
