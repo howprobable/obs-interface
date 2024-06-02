@@ -37,6 +37,7 @@ class obs_interface:
 
 
     def __del__(self, ): 
+        print("[OBS] Destructor called...")
         if not self.clean: self.clean_up() 
 
 
