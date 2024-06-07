@@ -1,6 +1,7 @@
 from __future__ import annotations
 from obswebsocket import obsws, requests
-from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip
+from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip, concatenate_videoclips, ColorClip, AudioFileClip
+from dataclasses import dataclass
 
 import subprocess
 import pyautogui
@@ -13,6 +14,13 @@ class TooManyGoogleChromes(Exception): pass
 
 class TooLessGoogleChromes(Exception): pass
 
+@dataclass
+class end_card_config: 
+    image_path: str
+    audio_path: str
+    length: float
+
+
 class obs_interface: 
     port: int = 4444
     password: str = "password"
@@ -23,13 +31,14 @@ class obs_interface:
 
     #defaults
     
-    def __init__(self, verbose : bool = False, watermark_path: str = None): 
+    def __init__(self, verbose : bool = False, watermark_path: str = None, end_card_config: end_card_config = None): 
         self.client: obsws = None 
         self.clean: bool = False
         self.started_process: bool = False
         self.output_path : str = None
         self.verbose = verbose
         self.watermark_path : str = watermark_path or None
+        self.end_card_config : end_card_config = end_card_config or None
         self.recording: bool = False
 
         self._start_server()
@@ -54,13 +63,15 @@ class obs_interface:
         if self.started_process: self._stop_server()
         self.clean = True
 
-    def start_recording(self, filename: str = None, watermark_path : str = None) -> None: 
+    def start_recording(self, filename: str = None, watermark_path : str = None, end_card_config: end_card_config = None) -> None: 
         if self.verbose: print("[OBS] Starting recording...")
 
         if filename: 
-            if not filename.endswith(obs_interface.file_type): filename += obs_interface.file_type
-            self.output_path = filename
+            self.set_output_path(filename)
+
         if watermark_path: self.watermark_path : str = watermark_path
+        if end_card_config: self.end_card_config : end_card_config = end_card_config
+
 
         if len(pyautogui.getWindowsWithTitle(obs_interface.chrome_process_title)) == 0: raise TooLessGoogleChromes()
         if len(pyautogui.getWindowsWithTitle(obs_interface.chrome_process_title)) > 1: raise TooManyGoogleChromes()
@@ -77,11 +88,13 @@ class obs_interface:
         self.client.call(requests.StartRecord())
         time.sleep(1)
 
-    def stop_recording(self, filename: str = None, watermark_path : str = None) -> None: 
+    def stop_recording(self, filename: str = None, watermark_path : str = None, end_card_config: end_card_config = None) -> None: 
         if filename: 
-            if not filename.endswith(obs_interface.file_type): filename += obs_interface.file_type
-            self.output_path = filename
+            self.set_output_path(filename)
+
         if watermark_path: self.watermark_path : str = watermark_path
+        if end_card_config: self.end_card_config : end_card_config = end_card_config
+
         if not self.recording: return
 
         time.sleep(2)
@@ -89,6 +102,7 @@ class obs_interface:
         req = requests.StopRecord()
         self.client.call(req)
 
+        self.recording = False
         if self.verbose: print("[OBS] Stopping recording...")
 
         for _ in range(3): 
@@ -101,8 +115,10 @@ class obs_interface:
             except PermissionError: pass
             except Exception as e: raise e
 
-        
+        if self.verbose: print("[OBS] Recording stopped...")
+
         if self.watermark_path: 
+            if self.verbose: print("[OBS] Adding watermark...")
             for _ in range(3): 
                 time.sleep(3)
                 try: 
@@ -111,6 +127,15 @@ class obs_interface:
                 except PermissionError: pass
                 except Exception as e: raise e
             
+        if self.end_card_config:
+            if self.verbose: print("[OBS] Adding end card...") 
+            for _ in range(3): 
+                time.sleep(3)
+                try: 
+                    self._add_end_card(video_path=self.output_path, end_card_config=end_card_config)
+                    break
+                except PermissionError: pass
+                except Exception as e: raise e
 
     def set_output_path(self, path: str):
         if not path.endswith(obs_interface.file_type): path += obs_interface.file_type
@@ -119,8 +144,11 @@ class obs_interface:
     def set_watermark_path(self, path: str): 
         self.watermark_path : str = path
 
-    #privates
+    def set_end_card_config(self, end_card_config: end_card_config): 
+        self.end_card_config : end_card_config = end_card_config
+    
 
+    #privates
     def _start_server(self, path: str = None, port: int= None, password: str=None) -> None: 
         path = path or "C:\Program Files\obs-studio\\bin\\64bit\obs64.exe"
         port = port or obs_interface.port
@@ -179,14 +207,41 @@ class obs_interface:
         final = CompositeVideoClip([video, logo])
         final.write_videofile(new_path, codec="libx264")
 
+    #TODO: Doesnt work
+    def _add_end_card(self, video_path: str, end_card_config: end_card_config) -> None: 
+        new_path = os.path.splitext(video_path)[0] + "_with_endcard.mp4"
+        
+        video = VideoFileClip(video_path)
+        
+        logo = ImageClip(end_card_config.image_path).set_duration(end_card_config.length)
+        if logo.size != video.size:
+            logo = logo.resize(height=video.h)  
+            background = ColorClip(size=video.size, color=(255, 255, 255), duration=end_card_config.length)
+            logo = CompositeVideoClip([background, logo.set_position('center')])
+        else:
+            logo = logo.set_position('center')
+
+        # Load and check the end card audio
+        audio = AudioFileClip(end_card_config.audio_path)
+        if audio.duration < end_card_config.length:
+            raise ValueError("End Card audio is too short")
+        audio = audio.subclip(0, end_card_config.length)
+        logo = logo.set_audio(audio)
+
+        final = concatenate_videoclips([video, logo])
+        final.write_videofile(new_path, codec="libx264")
 
 if __name__ == "__main__": 
-    obs_client = obs_interface(verbose=True)
-    obs_client.start_recording(filename="C:/Users/gerde/Desktop/test")
-    # watermark_path = "C:\/Users\/gerde\/Desktop\/Schnell Gezeigt\/Logo\/Quer-klein.png"
+    obs_client = obs_interface(verbose=True, )
 
-    time.sleep(10)
+    watermark_path = "C:\/Users\/gerde\/Desktop\/Schnell Gezeigt\/Logo\/Quer-klein.png"
+    image_path = watermark_path
+    audio_path = "C:/Users/gerde/Desktop/Schnell Gezeigt/outro.mp3"
+    length = 10.0
 
-    obs_client.stop_recording() #watermark_path=watermark_path)
+    obs_client.start_recording(filename="C:/Users/gerde/Desktop/test2")
+    
+    time.sleep(5)
 
+    obs_client.stop_recording(watermark_path=watermark_path, end_card_config=end_card_config(image_path=image_path, audio_path=audio_path, length=length))
     obs_client.clean_up()
