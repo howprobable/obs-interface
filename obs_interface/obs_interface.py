@@ -3,6 +3,10 @@ from obswebsocket import obsws, requests
 from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip, concatenate_videoclips, ColorClip, AudioFileClip
 from dataclasses import dataclass
 
+#silent movepy logs
+import logging
+logging.getLogger("moviepy").setLevel(logging.ERROR)
+
 import subprocess
 import pyautogui
 import psutil
