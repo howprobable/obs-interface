@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 #silent movepy logs
 import logging
-logging.getLogger("moviepy").setLevel(logging.ERROR)
+logging.getLogger("moviepy").setLevel(logging.CRITICAL)
 
 import subprocess
 import pyautogui
@@ -23,6 +23,8 @@ class end_card_config:
     image_path: str
     audio_path: str
     length: float
+    background: tuple = (255, 255, 255)
+    logo_position: tuple = (30, "center")
 
 
 class obs_interface: 
@@ -210,26 +212,33 @@ class obs_interface:
 
         final = CompositeVideoClip([video, logo])
         final.write_videofile(new_path, codec="libx264")
+        os.remove(video_path)
 
-    #TODO: Doesnt work
     def _add_end_card(self, video_path: str, end_card_config: end_card_config) -> None: 
         new_path = os.path.splitext(video_path)[0] + "_with_endcard.mp4"
         
         video = VideoFileClip(video_path)
-        
+          
         logo = ImageClip(end_card_config.image_path).set_duration(end_card_config.length)
-        background = ColorClip(size=video.size, color=(255, 255, 255), duration=end_card_config.length)
-        logo = CompositeVideoClip([background, logo.margin(left=30,).set_pos(("left", "center"))])
+        background = ColorClip(size=video.size, color=end_card_config.background, duration=end_card_config.length)
+        logo = CompositeVideoClip([background, logo.set_pos(end_card_config.logo_position)])
 
         # Load and check the end card audio
-        audio = AudioFileClip(end_card_config.audio_path)
+        audio : AudioFileClip = AudioFileClip(end_card_config.audio_path)
+        
         if audio.duration < end_card_config.length:
             raise ValueError("End Card audio is too short")
+        
         audio = audio.subclip(0, end_card_config.length)
         logo = logo.set_audio(audio)
 
         final = concatenate_videoclips([video, logo])
         final.write_videofile(new_path, codec="libx264")
+
+        os.remove(video_path)
+        os.rename(new_path, video_path)
+
+
 
 if __name__ == "__main__": 
     obs_client = obs_interface(verbose=True, )
