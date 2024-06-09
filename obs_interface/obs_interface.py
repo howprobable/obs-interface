@@ -214,12 +214,8 @@ class obs_interface:
         video = VideoFileClip(video_path)
         
         logo = ImageClip(end_card_config.image_path).set_duration(end_card_config.length)
-        if logo.size != video.size:
-            logo = logo.resize(height=video.h)  
-            background = ColorClip(size=video.size, color=(255, 255, 255), duration=end_card_config.length)
-            logo = CompositeVideoClip([background, logo.set_position('center')])
-        else:
-            logo = logo.set_position('center')
+        background = ColorClip(size=video.size, color=(255, 255, 255), duration=end_card_config.length)
+        logo = CompositeVideoClip([background, logo.margin(left=30,).set_pos(("left", "center"))])
 
         # Load and check the end card audio
         audio = AudioFileClip(end_card_config.audio_path)
